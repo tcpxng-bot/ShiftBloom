@@ -67,7 +67,7 @@
   .dow{display:grid;grid-template-columns:repeat(7,1fr);}
   .dow div{text-align:center;font-size:12px;padding:4px 0;font-weight:500;color:var(--muted);}
   .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
-  .cell{min-height:62px;border-radius:16px;padding:4px;text-align:left;display:flex;flex-direction:column;background:transparent;border:none;cursor:pointer;position:relative;}
+  .cell{min-height:62px;min-width:0;overflow:hidden;border-radius:16px;padding:4px;text-align:left;display:flex;flex-direction:column;background:transparent;border:none;cursor:pointer;position:relative;}
   .cell.sel{background:var(--lilac-soft);outline:2px solid var(--lilac);outline-offset:-2px;}
   .daynum{width:18px;height:18px;line-height:18px;text-align:center;border-radius:999px;font-size:12px;margin-bottom:2px;color:var(--ink);}
   .daynum.today{background:#AFCBFF;color:#fff;font-weight:700;}
