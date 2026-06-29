@@ -77,6 +77,21 @@
   .cellrow{display:flex;align-items:center;gap:2px;margin-bottom:2px;}
   .cellrow .badge{flex:1;min-width:0;margin-bottom:0;}
   .cellrow .more{flex-shrink:0;}
+  /* agenda / list view */
+  .agrow{display:flex;gap:12px;width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:11px 8px;border-bottom:1px solid var(--field);align-items:flex-start;}
+  .agrow:last-child{border-bottom:none;}
+  .agrow.sel{background:var(--lilac-soft);border-radius:14px;border-bottom-color:transparent;}
+  .agdate{width:38px;flex-shrink:0;text-align:center;}
+  .agnum{font-size:18px;font-weight:700;color:var(--plum);line-height:1.2;}
+  .agnum.today{display:inline-block;background:#AFCBFF;color:#fff;border-radius:999px;width:26px;height:26px;line-height:26px;font-size:15px;}
+  .agdow{font-size:11px;color:var(--muted);margin-top:2px;}
+  .agbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+  .agitem{display:flex;align-items:center;gap:7px;}
+  .agdot{width:10px;height:10px;border-radius:999px;flex-shrink:0;}
+  .agname{font-weight:600;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .agtime{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap;flex-shrink:0;}
+  .agclaim{font-size:12px;color:#1F8A6B;margin-left:17px;}
+  .agnote{font-size:12px;color:var(--muted);white-space:pre-wrap;word-break:break-word;}
   .more{font-size:9px;color:var(--muted);}
   .sec-title{font-weight:600;color:var(--plum);margin:0;}
   .entry{display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:var(--card);}
@@ -250,7 +265,7 @@ var DEFAULT_DUTIES=[
   {id:"d_off",name:"OFF",emoji:"🏠",bg:"#FFAAA5",fg:"#8B2E29",type:"Off",allDay:true,start:"",end:"",note:"",desc:"",isMain:true,hidden:false,paid:false,payType:"fixed",amount:0,rate:0,inOT:false},
   {id:"d_vac",name:"Vac",emoji:"🌴",bg:"#F7C3CF",fg:"#8B3A4D",type:"Vacation",allDay:true,start:"",end:"",note:"",desc:"",isMain:false,hidden:false,paid:false,payType:"fixed",amount:0,rate:0,inOT:false},
   {id:"d_trn",name:"อบรม",emoji:"📚",bg:"#E6A4B4",fg:"#6B2E3D",type:"Training",allDay:false,start:"09:00",end:"16:00",note:"",desc:"",isMain:false,hidden:false,paid:false,payType:"fixed",amount:0,rate:0,inOT:false},
-  {id:"d_ot",name:"เวร OT ดึก",emoji:"🌙",bg:"#BFE8D8",fg:"#1F5C57",type:"Work",allDay:false,start:"16:00",end:"00:00",note:"",desc:"",isMain:false,hidden:false,paid:true,payType:"fixed",amount:850,rate:0,inOT:true}
+  {id:"d_ot",name:"เวร OT ดึก",short:"OT",emoji:"🌙",bg:"#BFE8D8",fg:"#1F5C57",type:"Work",allDay:false,start:"16:00",end:"00:00",note:"",desc:"",isMain:false,hidden:false,paid:true,payType:"fixed",amount:850,rate:0,inOT:true}
 ];
 var TH_MONTHS=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 var TH_DOW=["อา","จ","อ","พ","พฤ","ศ","ส"],TH_DOW_FULL=["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
@@ -284,7 +299,7 @@ var S={
   otRates:load(KEY_OTRATES,{morning:750,evening:850,ward:150}),
   otEntries:load(KEY_OTENTRIES,[]),
   entryClaims:load(KEY_ECLAIMS,{}),
-  view:"home",cursor:{y:new Date().getFullYear(),m:new Date().getMonth()},selected:keyOf(new Date()),summaryFilter:"sub"
+  view:"home",cursor:{y:new Date().getFullYear(),m:new Date().getMonth()},selected:keyOf(new Date()),summaryFilter:"sub",calView:"grid"
 };
 function pD(){save(KEY_DUTIES,S.duties);}function pE(){save(KEY_ENTRIES,S.entries);}
 function pM(){save(KEY_MOODS,S.moods);}function pS(){save(KEY_SETTINGS,S.settings);}
@@ -420,12 +435,40 @@ function renderDash(){
   return h2;
 }
 
+function renderAgenda(c,todayKey){
+  var dim=new Date(c.y,c.m+1,0).getDate(),rows="";
+  for(var dd=1;dd<=dim;dd++){
+    var date=new Date(c.y,c.m,dd),k=keyOf(date),list=S.entries[k]||[],mood=S.moods[k],notes=S.notes[k]||[];
+    if(!list.length&&!mood&&!notes.length)continue;
+    var isT=k===todayKey,isS=k===S.selected;
+    rows+='<button class="agrow'+(isS?" sel":"")+'" data-action="day" data-key="'+k+'">';
+    rows+='<div class="agdate"><div class="agnum'+(isT?" today":"")+'" style="'+(date.getDay()===0&&!isT?"color:#FF9C97":"")+'">'+dd+'</div><div class="agdow">'+TH_DOW[date.getDay()]+'</div></div>';
+    rows+='<div class="agbody">';
+    var m=[],s=[];list.forEach(function(e){var du=dutyById(e.dutyId);(du&&dutyIsMain(du)?m:s).push({e:e,du:du});});
+    m.concat(s).forEach(function(x){var du=x.du;
+      rows+='<div class="agitem"><span class="agdot" style="background:'+(du?du.bg:"#ddd")+'"></span>';
+      rows+='<span class="agname">'+(du&&du.emoji?esc(du.emoji)+" ":"")+esc(du?du.name:"เวรที่ถูกลบ")+(du&&du.paid?" 💰":"")+'</span>';
+      rows+='<span class="agtime">'+(du?(du.allDay?"ทั้งวัน":(du.start&&du.end?du.start+"–"+du.end:"")):"")+'</span></div>';
+      var cl=(du&&du.inOT&&S.entryClaims[x.e.id])?S.entryClaims[x.e.id]:"";
+      if(cl)rows+='<div class="agclaim">💸 เบิก '+thShort(cl)+'</div>';
+    });
+    if(mood)rows+='<div class="agitem"><span class="agname" style="font-weight:500">'+esc(mood)+' อารมณ์วันนี้</span></div>';
+    notes.forEach(function(n){rows+='<div class="agnote">📝 '+esc(n.text)+'</div>';});
+    rows+='</div></button>';
+  }
+  if(!rows)rows='<div style="text-align:center;color:var(--muted);padding:28px">เดือนนี้ยังไม่มีเวร 🌷</div>';
+  return '<div class="card" style="padding:6px">'+rows+'</div>';
+}
 function renderCalendar(){
   var c=S.cursor,grid=buildGrid(c.y,c.m),todayKey=keyOf(new Date()),h="";
   h+='<div class="row" style="justify-content:space-between;margin:16px 0 12px">';
   h+='<button class="icon-btn" data-action="month" data-d="-1">‹</button>';
   h+='<div><div class="month-title">'+TH_MONTHS[c.m]+' '+(c.y+543)+'</div><button class="today-btn" data-action="today">วันนี้</button></div>';
   h+='<button class="icon-btn" data-action="month" data-d="1">›</button></div>';
+  h+='<div class="row" style="gap:6px;justify-content:center;margin:0 0 12px">';
+  h+='<button class="filter'+(S.calView==="list"?"":" on")+'" data-action="calview" data-v="grid">🗓 ตาราง</button>';
+  h+='<button class="filter'+(S.calView==="list"?" on":"")+'" data-action="calview" data-v="list">📋 รายการ</button></div>';
+  if(S.calView==="list"){h+=renderAgenda(c,todayKey);}else{
   h+='<div class="card" style="padding:12px"><div class="dow">';
   for(var i=0;i<7;i++){var col=i===0?"#FF9C97":(i===6?"#8AA0D9":"var(--muted)");h+='<div style="color:'+col+'">'+TH_DOW[i]+'</div>';}
   h+='</div><div class="grid">';
@@ -438,12 +481,13 @@ function renderCalendar(){
     h+='<span class="daynum'+(isT?' today':'')+(date.getDay()===0&&!isT?' sun':'')+'">'+date.getDate()+'</span><span>';
     var mains=[],subs=[];
     list.forEach(function(e){var du=dutyById(e.dutyId);(du&&dutyIsMain(du)?mains:subs).push(du);});
-    function bdg(du){return '<span class="badge" style="background:'+(du?du.bg:"#E5E5E5")+';color:'+(du?du.fg:"#666")+'">'+esc(du?du.name:"—")+'</span>';}
+    function bdg(du){return '<span class="badge" style="background:'+(du?du.bg:"#E5E5E5")+';color:'+(du?du.fg:"#666")+'">'+esc(du?(du.short||du.name):"—")+'</span>';}
     var ordered=mains.concat(subs);
     if(ordered[0])h+='<span class="cellrow">'+bdg(ordered[0])+'</span>';
     if(ordered[1])h+='<span class="cellrow">'+bdg(ordered[1])+(ordered.length>2?'<span class="more">+'+(ordered.length-2)+'</span>':'')+'</span>';
     h+='</span></button>';});
   h+='</div></div>';
+  }
   var sd=S.selected?new Date(S.selected+"T00:00:00"):null,selList=(S.selected&&S.entries[S.selected])||[];
   h+='<section style="margin-top:16px"><div class="row" style="justify-content:space-between;align-items:baseline;margin:0 4px 8px">';
   h+='<h2 class="sec-title">'+(sd?(TH_DOW_FULL[sd.getDay()]+' '+sd.getDate()+' '+TH_MONTHS[sd.getMonth()]):"เลือกวันที่")+'</h2>';
@@ -702,11 +746,12 @@ function exportOTPDF(){
 }
 function openDutyForm(duty){
   var isEdit=!!(duty&&duty.id);
-  var f=duty?JSON.parse(JSON.stringify(duty)):{id:"",name:"",emoji:"🌸",bg:"#AFCBFF",fg:"#374151",type:"Work",allDay:false,start:"08:00",end:"16:00",note:"",desc:"",isMain:true,hidden:false,paid:false,payType:"fixed",amount:0,rate:0,inOT:false};
+  var f=duty?JSON.parse(JSON.stringify(duty)):{id:"",name:"",short:"",emoji:"🌸",bg:"#AFCBFF",fg:"#374151",type:"Work",allDay:false,start:"08:00",end:"16:00",note:"",desc:"",isMain:true,hidden:false,paid:false,payType:"fixed",amount:0,rate:0,inOT:false};
   var main=dutyIsMain(f),root=document.getElementById("modal-root");
   var h='<div class="overlay"><div class="sheet" id="sheet"><div class="grip"></div><h3>'+(isEdit?"แก้ไขเวร":"เพิ่มเวรใหม่")+'</h3>';
   h+='<div style="display:flex;justify-content:center;margin-bottom:16px"><span id="df-prev" style="border-radius:16px;padding:8px 16px;display:flex;align-items:center;gap:8px;font-weight:600;background:'+f.bg+';color:'+f.fg+';box-shadow:0 6px 16px -8px rgba(120,110,160,.5)"><span id="df-prev-em">'+esc(f.emoji)+'</span><span id="df-prev-nm">'+(esc(f.name)||"ชื่อเวร")+'</span></span></div>';
   h+='<div class="field"><label>ชื่อเวร</label><input type="text" id="df-name" placeholder="เช่น RR, ดึก, เช้าใหญ่" value="'+esc(f.name)+'"></div>';
+  h+='<div class="field"><label>ชื่อย่อในปฏิทิน (ไม่บังคับ · สั้น ๆ ~5 ตัว)</label><input type="text" id="df-short" maxlength="8" placeholder="เช่น บ่าย, OT, ดึก" value="'+esc(f.short||"")+'"></div>';
   h+='<div class="field"><label>Emoji (ไม่บังคับ)</label><div class="row" style="gap:8px"><input type="text" id="df-emoji" maxlength="2" style="width:56px;text-align:center;font-size:18px" value="'+esc(f.emoji)+'"><div class="row" style="gap:4px;overflow-x:auto">';
   EMOJIS.forEach(function(em){h+='<button class="emoji-pick'+(f.emoji===em?' on':'')+'" data-emoji="'+esc(em)+'">'+esc(em)+'</button>';});
   h+='</div></div></div>';
@@ -758,7 +803,7 @@ function openDutyForm(duty){
       if(on&&sh.dataset.inot!=="1"){var ib=document.getElementById("df-inot");ib.classList.add("on");ib.style.background="var(--lilac)";sh.dataset.inot="1";}}};}
   tog("df-allday","allday","#9AD6D1");tog("df-main","main","var(--lilac)");tog("df-paid","paid","#9AD6D1");tog("df-inot","inot","var(--lilac)");
   document.getElementById("df-save").onclick=function(){saveDutyObj({
-    id:sh.dataset.id||"",name:document.getElementById("df-name").value,emoji:sh.dataset.emoji,bg:sh.dataset.bg,fg:sh.dataset.fg,
+    id:sh.dataset.id||"",name:document.getElementById("df-name").value,short:document.getElementById("df-short").value.trim(),emoji:sh.dataset.emoji,bg:sh.dataset.bg,fg:sh.dataset.fg,
     type:sh.dataset.type,allDay:sh.dataset.allday==="1",isMain:sh.dataset.main==="1",hidden:sh.dataset.hidden==="1",
     start:document.getElementById("df-start").value,end:document.getElementById("df-end").value,
     note:document.getElementById("df-note").value,desc:"",
@@ -868,6 +913,7 @@ document.addEventListener("click",function(e){
   else if(a==="delduty"||a==="delduty-modal"){deleteDuty(el.getAttribute("data-id"));}
   else if(a==="move"){moveDuty(el.getAttribute("data-id"),+el.getAttribute("data-dir"));}
   else if(a==="sumfilter"){S.summaryFilter=el.getAttribute("data-f");render();}
+  else if(a==="calview"){S.calView=el.getAttribute("data-v");render();}
   else if(a==="addot"){toggleFab(false);openOTForm(null);}
   else if(a==="fabtoggle"){toggleFab();}
   else if(a==="fabclose"){toggleFab(false);}
