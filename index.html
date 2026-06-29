@@ -240,7 +240,7 @@ if ("serviceWorker" in navigator) window.addEventListener("load",function(){navi
 
 /* ===== constants ===== */
 var KEY_DUTIES="pdc:duties:v1",KEY_ENTRIES="pdc:entries:v1",KEY_MOODS="pdc:moods:v1",KEY_SETTINGS="pdc:settings:v1";
-var KEY_OTRATES="pdc:otrates:v1",KEY_OTENTRIES="pdc:otentries:v1",KEY_NOTES="pdc:notes:v1",KEY_ECLAIMS="pdc:eclaims:v1";
+var KEY_OTRATES="pdc:otrates:v1",KEY_OTENTRIES="pdc:otentries:v1",KEY_NOTES="pdc:notes:v1",KEY_ECLAIMS="pdc:eclaims:v1",KEY_INCOME="pdc:income:v1";
 var AVATARS=["👩🏻‍⚕️","🧑🏻‍⚕️","👨🏻‍⚕️","🌸","🩺","🐰","🐱","🌷","⭐","💗","☕","🦋"];
 var OT_TYPES=[{value:"morning",label:"เวรเช้า",fixed:true},{value:"evening",label:"เวรบ่าย/ดึก",fixed:true},{value:"ward",label:"OT ward (ราย ชม.)",fixed:false}];
 function otTypeLabel(v){for(var i=0;i<OT_TYPES.length;i++)if(OT_TYPES[i].value===v)return OT_TYPES[i].label;return v;}
@@ -299,12 +299,14 @@ var S={
   otRates:load(KEY_OTRATES,{morning:750,evening:850,ward:150}),
   otEntries:load(KEY_OTENTRIES,[]),
   entryClaims:load(KEY_ECLAIMS,{}),
+  income:load(KEY_INCOME,{salary:0,ptas:0,topup:0}),
   view:"home",cursor:{y:new Date().getFullYear(),m:new Date().getMonth()},selected:keyOf(new Date()),summaryFilter:"sub",calView:"grid"
 };
 function pD(){save(KEY_DUTIES,S.duties);}function pE(){save(KEY_ENTRIES,S.entries);}
 function pM(){save(KEY_MOODS,S.moods);}function pS(){save(KEY_SETTINGS,S.settings);}
 function pOR(){save(KEY_OTRATES,S.otRates);}function pOE(){save(KEY_OTENTRIES,S.otEntries);}
 function pEC(){save(KEY_ECLAIMS,S.entryClaims);}
+function pIN(){save(KEY_INCOME,S.income);}
 function pNo(){save(KEY_NOTES,S.notes);}
 function dutyById(id){for(var i=0;i<S.duties.length;i++)if(S.duties[i].id===id)return S.duties[i];return null;}
 function applyTheme(){document.body.classList.toggle("dark",!!S.settings.dark);
@@ -342,7 +344,7 @@ function moveDuty(id,dir){var d=dutyById(id);if(!d)return;var main=dutyIsMain(d)
   var gi=group.indexOf(d),tgt=group[gi+dir];if(!tgt)return;
   var ia=S.duties.indexOf(d),ib=S.duties.indexOf(tgt);S.duties[ia]=tgt;S.duties[ib]=d;pD();render();}
 function orderedDuties(){var m=[],s=[];S.duties.forEach(function(d){(dutyIsMain(d)?m:s).push(d);});return m.concat(s);}
-function exportData(){var p={app:"shiftbloom",version:2,exportedAt:new Date().toISOString(),duties:S.duties,entries:S.entries,moods:S.moods,settings:S.settings,otRates:S.otRates,otEntries:S.otEntries,notes:S.notes,entryClaims:S.entryClaims};
+function exportData(){var p={app:"shiftbloom",version:2,exportedAt:new Date().toISOString(),duties:S.duties,entries:S.entries,moods:S.moods,settings:S.settings,otRates:S.otRates,otEntries:S.otEntries,notes:S.notes,entryClaims:S.entryClaims,income:S.income};
   var b=new Blob([JSON.stringify(p,null,2)],{type:"application/json"}),u=URL.createObjectURL(b),a=document.createElement("a"),d=new Date();
   a.href=u;a.download="shiftbloom-backup-"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+".json";document.body.appendChild(a);a.click();a.remove();
   setTimeout(function(){URL.revokeObjectURL(u);},1000);flash("ส่งออกไฟล์สำรองแล้ว 💾");}
@@ -353,12 +355,13 @@ function importData(file){if(!file)return;var r=new FileReader();r.onload=functi
     if(data.otRates)S.otRates=data.otRates;if(Array.isArray(data.otEntries))S.otEntries=data.otEntries;
     if(data.notes&&typeof data.notes==="object")S.notes=data.notes;
     if(data.entryClaims&&typeof data.entryClaims==="object")S.entryClaims=data.entryClaims;
-    pD();pE();pM();pS();pOR();pOE();pNo();pEC();applyTheme();flash("นำเข้าข้อมูลแล้ว 🌷");render();});
+    if(data.income&&typeof data.income==="object")S.income=data.income;
+    pD();pE();pM();pS();pOR();pOE();pNo();pEC();pIN();applyTheme();flash("นำเข้าข้อมูลแล้ว 🌷");render();});
   }catch(e){flash("ไฟล์ไม่ถูกต้อง");}};r.readAsText(file);}
 function resetApp(){confirmAsk("รีเซ็ตแอป จะลบเวร ตาราง อารมณ์ โน้ต และตั้งค่าทั้งหมด ตกลงไหม?",function(){
   S.duties=JSON.parse(JSON.stringify(DEFAULT_DUTIES));S.entries={};S.moods={};S.notes={};S.settings={name:"พยาบาลคนเก่ง",dark:S.settings.dark,otGroupBy:"work",avatar:"👩🏻‍⚕️"};
-  S.otRates={morning:750,evening:850,ward:150};S.otEntries=[];S.entryClaims={};
-  pD();pE();pM();pS();pOR();pOE();pNo();pEC();flash("รีเซ็ตแล้ว");render();});}
+  S.otRates={morning:750,evening:850,ward:150};S.otEntries=[];S.entryClaims={};S.income={salary:0,ptas:0,topup:0};
+  pD();pE();pM();pS();pOR();pOE();pNo();pEC();pIN();flash("รีเซ็ตแล้ว");render();});}
 
 /* ===== helpers for month aggregates ===== */
 function monthEntries(){var c=S.cursor,pre=c.y+"-"+pad(c.m+1)+"-",out=[];
@@ -622,7 +625,17 @@ function renderSettings(){
 function renderOT(){
   var c=S.cursor,list=otMonthList().slice().sort(function(a,b){return (otEff(a)||"").localeCompare(otEff(b)||"");}),sum=otMonthSum(),r=S.otRates;
   var gb=S.settings.otGroupBy==="claim"?"claim":"work";
-  var h='<div class="row" style="justify-content:space-between;margin:18px 0 10px">';
+  var otTotal=otMonthSum().total,inc=S.income||{},sal=num(inc.salary),pt=num(inc.ptas),tp=num(inc.topup);
+  var totalIncome=sal+pt+tp+otTotal;
+  var h='<div class="card" style="padding:16px;margin:18px 0 12px;background:linear-gradient(135deg,#BFE8D8 0%,#AFCBFF 100%)">';
+  h+='<div style="font-size:13px;color:#1F5C57;font-weight:600">💵 รายได้รวม '+TH_MONTHS[S.cursor.m]+' '+(S.cursor.y+543)+'</div>';
+  h+='<div style="font-size:30px;font-weight:700;color:#15433B;margin:4px 0 6px">฿'+fmtMoney(totalIncome)+'</div>';
+  h+='<div style="font-size:12px;color:#1F5C57;line-height:1.7">เงินเดือน ฿'+fmtMoney(sal)+' · พตส ฿'+fmtMoney(pt)+' · Top up ฿'+fmtMoney(tp)+' · OT ฿'+fmtMoney(otTotal)+'</div></div>';
+  h+='<div class="card" style="padding:16px;margin-bottom:12px"><div class="row" style="gap:6px;margin-bottom:10px"><span style="font-size:18px">💼</span><h3 class="sec-title">รายได้ประจำ (คงที่/เดือน · แก้ได้)</h3></div>';
+  h+='<div class="stat-grid"><div class="field" style="margin:0"><label>เงินเดือน (บาท)</label><input type="number" id="inc-salary" value="'+sal+'"></div>';
+  h+='<div class="field" style="margin:0"><label>พตส (บาท)</label><input type="number" id="inc-ptas" value="'+pt+'"></div>';
+  h+='<div class="field" style="margin:0;grid-column:span 2"><label>Top up (บาท)</label><input type="number" id="inc-topup" value="'+tp+'"></div></div></div>';
+  h+='<div class="row" style="justify-content:space-between;margin:0 0 10px">';
   h+='<button class="icon-btn" data-action="month" data-d="-1">‹</button>';
   h+='<div><div class="pagettl" style="text-align:center">💰 OT '+TH_MONTHS[c.m]+' '+(c.y+543)+'</div></div>';
   h+='<button class="icon-btn" data-action="month" data-d="1">›</button></div>';
@@ -943,7 +956,11 @@ document.addEventListener("input",function(e){
   else if(e.target.id==="ot-rate-morning"){S.otRates.morning=num(e.target.value);pOR();}
   else if(e.target.id==="ot-rate-evening"){S.otRates.evening=num(e.target.value);pOR();}
   else if(e.target.id==="ot-rate-ward"){S.otRates.ward=num(e.target.value);pOR();}
+  else if(e.target.id==="inc-salary"){S.income.salary=num(e.target.value);pIN();}
+  else if(e.target.id==="inc-ptas"){S.income.ptas=num(e.target.value);pIN();}
+  else if(e.target.id==="inc-topup"){S.income.topup=num(e.target.value);pIN();}
 });
+document.addEventListener("change",function(e){if(e.target.id&&e.target.id.indexOf("inc-")===0&&S.view==="ot")render();});
 document.getElementById("import-file").addEventListener("change",function(e){importData(e.target.files[0]);e.target.value="";});
 
 /* live countdown refresh on home */
