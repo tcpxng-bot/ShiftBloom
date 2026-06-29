@@ -163,7 +163,7 @@
   .sheet h3{text-align:center;font-weight:700;color:var(--plum);margin:0 0 16px;}
   .field{margin-bottom:12px;}
   .field>label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin:0 4px 6px;}
-  input[type=text],input[type=number],input[type=time],textarea{width:100%;border-radius:16px;padding:10px 12px;border:none;outline:none;
+  input[type=text],input[type=number],input[type=time],input[type=date],textarea{width:100%;border-radius:16px;padding:10px 12px;border:none;outline:none;
     background:var(--field);color:var(--ink);font-family:inherit;font-size:15px;}
   textarea{resize:none;}
   .emoji-pick{width:36px;height:36px;border-radius:12px;background:var(--field);font-size:18px;flex-shrink:0;border:none;cursor:pointer;}
@@ -254,6 +254,8 @@ var DEFAULT_DUTIES=[
 ];
 var TH_MONTHS=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 var TH_DOW=["อา","จ","อ","พ","พฤ","ศ","ส"],TH_DOW_FULL=["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
+var TH_MONTHS_SHORT=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function thShort(s){if(!s)return "";var d=new Date(s+"T00:00:00");return d.getDate()+" "+TH_MONTHS_SHORT[d.getMonth()];}
 
 function pad(n){return ("0"+n).slice(-2);}
 function keyOf(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
@@ -452,8 +454,9 @@ function renderCalendar(){
     h+='<div class="entry soft"><span class="av" style="background:'+(du?du.bg:"#eee")+'">'+(du?esc(du.emoji):"🌫️")+'</span>';
     h+='<button class="btn" style="flex:1;min-width:0;text-align:left" data-action="editnote" data-key="'+S.selected+'" data-eid="'+e.id+'">';
     h+='<div class="name">'+esc(du?du.name:"เวรที่ถูกลบ")+(du&&du.paid?' 💰':'')+'</div>';
-    h+='<div class="sub">'+(du?timeLabel(du):"—")+(e.note?(" · "+esc(e.note)):"")+'</div></button>';
-    if(du&&du.inOT)h+='<button class="mini" data-action="claimset" data-key="'+S.selected+'" data-eid="'+e.id+'" title="ตั้งวันที่เบิก">💸</button>';
+    var claimTxt=(du&&du.inOT&&S.entryClaims[e.id])?(' · 💸 เบิก '+thShort(S.entryClaims[e.id])):"";
+    h+='<div class="sub">'+(du?timeLabel(du):"—")+(e.note?(" · "+esc(e.note)):"")+esc(claimTxt)+'</div></button>';
+    if(du&&du.inOT)h+='<button class="mini" data-action="claimset" data-key="'+S.selected+'" data-eid="'+e.id+'" title="ย้ายวันเบิก">💸</button>';
     h+='<button class="x-btn" data-action="rmentry" data-key="'+S.selected+'" data-eid="'+e.id+'">×</button></div>';});
   h+='</div>';
   // daily notes
@@ -620,8 +623,8 @@ function openOTForm(ot){
   var f=ot?JSON.parse(JSON.stringify(ot)):{id:"",date:S.selected||keyOf(new Date()),type:"morning",hours:0,rate:S.otRates.morning,amount:S.otRates.morning,ward:"",location:"",note:"",claimDate:""};
   if(f.claimDate===undefined)f.claimDate="";
   var h='<div class="overlay"><div class="sheet" id="otsheet"><div class="grip"></div><h3>'+(isEdit?"แก้ไข OT":"เพิ่มรายการ OT")+'</h3>';
-  h+='<div class="row" style="gap:8px"><div class="field" style="flex:1"><label>วันที่ทำงาน</label><input type="text" id="ot-date" value="'+esc(f.date)+'" placeholder="YYYY-MM-DD"></div>';
-  h+='<div class="field" style="flex:1"><label>💸 วันที่เบิก</label><input type="text" id="ot-claim" value="'+esc(f.claimDate||"")+'" placeholder="ว่าง=วันเดียวกัน"></div></div>';
+  h+='<div class="row" style="gap:8px"><div class="field" style="flex:1"><label>วันที่ทำงาน</label><input type="date" id="ot-date" value="'+esc(f.date)+'"></div>';
+  h+='<div class="field" style="flex:1"><label>💸 วันที่เบิก</label><input type="date" id="ot-claim" value="'+esc(f.claimDate||"")+'"></div></div>';
   h+='<div class="field"><label>ประเภท</label><div class="row" style="gap:6px;flex-wrap:wrap" id="ot-type-row">';
   OT_TYPES.forEach(function(t){h+='<button class="type-chip" data-ottype="'+t.value+'" style="'+(f.type===t.value?'background:var(--lilac-soft);color:var(--purple)':'')+'">'+t.label+'</button>';});
   h+='</div></div>';
@@ -663,15 +666,15 @@ function deleteOT(id){confirmAsk("ลบรายการ OT นี้ใช่
 function openClaimSet(key,eid){
   var cur=S.entryClaims[eid]||"";
   var du=null,list=S.entries[key]||[];list.forEach(function(e){if(e.id===eid)du=dutyById(e.dutyId);});
-  var h='<div class="overlay"><div class="sheet"><div class="grip"></div><h3>💸 ตั้งวันที่เบิก</h3>';
-  h+='<div class="row" style="gap:8px;margin-bottom:12px"><span class="av" style="width:40px;height:40px;background:'+(du?du.bg:"#eee")+'">'+(du?esc(du.emoji):"💰")+'</span><div><div style="font-weight:600">'+esc(du?du.name:"เวร")+'</div><div style="font-size:12px;color:var(--muted)">วันทำงาน '+esc(key)+'</div></div></div>';
-  h+='<div class="field"><label>วันที่เบิก (เว้นว่าง = เบิกวันเดียวกับวันทำงาน)</label><input type="text" id="cs-date" value="'+esc(cur)+'" placeholder="YYYY-MM-DD"></div>';
-  h+='<div class="row" style="gap:8px;margin-top:8px"><button class="del" id="cs-clear">ล้างวันเบิก</button><button class="save" id="cs-save">บันทึก</button></div></div></div>';
+  var h='<div class="overlay"><div class="sheet"><div class="grip"></div><h3>💸 ย้ายไปเบิกวันไหน</h3>';
+  h+='<div class="row" style="gap:8px;margin-bottom:6px"><span class="av" style="width:40px;height:40px;background:'+(du?du.bg:"#eee")+'">'+(du?esc(du.emoji):"💰")+'</span><div><div style="font-weight:600">'+esc(du?du.name:"เวร")+'</div><div style="font-size:12px;color:var(--muted)">ทำงานวันที่ '+thShort(key)+'</div></div></div>';
+  h+='<p style="font-size:12px;color:var(--muted);margin:0 0 12px">ถ้าเวร OT ซ้อนกัน เลือกวันที่จะนำไปเบิกได้เลย (เว้นว่าง = เบิกวันเดียวกับวันทำงาน)</p>';
+  h+='<div class="field"><label>วันที่เบิก</label><input type="date" id="cs-date" value="'+esc(cur)+'"></div>';
+  h+='<div class="row" style="gap:8px;margin-top:8px"><button class="del" id="cs-clear">เบิกวันเดียวกัน</button><button class="save" id="cs-save">บันทึก</button></div></div></div>';
   document.getElementById("modal-root").innerHTML=h;
-  document.getElementById("cs-clear").onclick=function(){delete S.entryClaims[eid];pEC();closeModal();flash("ล้างวันเบิกแล้ว");render();};
-  document.getElementById("cs-save").onclick=function(){var v=document.getElementById("cs-date").value.trim();
-    if(v&&!/^\d{4}-\d{2}-\d{2}$/.test(v)){flash("วันที่เบิกต้องเป็น YYYY-MM-DD");return;}
-    if(v)S.entryClaims[eid]=v;else delete S.entryClaims[eid];pEC();closeModal();flash("ตั้งวันเบิกแล้ว 💸");render();};
+  document.getElementById("cs-clear").onclick=function(){delete S.entryClaims[eid];pEC();closeModal();flash("เบิกวันเดียวกับวันทำงาน");render();};
+  document.getElementById("cs-save").onclick=function(){var v=document.getElementById("cs-date").value;
+    if(v&&v!==key)S.entryClaims[eid]=v;else delete S.entryClaims[eid];pEC();closeModal();flash(v&&v!==key?("ย้ายไปเบิก "+thShort(v)+" 💸"):"เบิกวันเดียวกัน");render();};
 }
 
 function exportOTCSV(){

@@ -1,5 +1,5 @@
 /* ตารางเวรของฉัน — service worker (offline support) */
-const CACHE = "shiftbloom-v15";
+const CACHE = "shiftbloom-v16";
 
 // ไฟล์ของแอป (app shell) — เก็บตอนติดตั้ง
 const APP_SHELL = [
